@@ -1,0 +1,211 @@
+{
+  "name": "ImobCRM AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "webhook-node",
+      "name": "Webhook Receiver"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.action }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "reset",
+              "output": 0
+            },
+            {
+              "value2": "message",
+              "output": 1
+            }
+          ]
+        },
+        "fallbackOutput": 1
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ],
+      "id": "switch-action",
+      "name": "Route Action"
+    },
+    {
+      "parameters": {
+        "sessionId": "={{ $json.body.sessionId }}",
+        "action": "reset"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryManager",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -120
+      ],
+      "id": "memory-reset",
+      "name": "Clear Memory"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"text\": \"Memória reiniciada com sucesso. Pode começar um novo atendimento.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        680,
+        -120
+      ],
+      "id": "response-reset",
+      "name": "Respond Reset"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=IDENTITY:\n{{ $json.body.config.personality }}\n\nMISSION:\n{{ $json.body.config.instruction }}\n\nRULES:\n{{ $json.body.config.rules }}\n\nRESTRICTIONS:\n{{ $json.body.config.limitations }}\n\nCONTEXT:\n{{ $json.body.config.context }}\n\nINVENTORY:\n{{ $json.body.config.inventory }}\n\nGUIDELINES:\n- Always answer in the language of the user (Portuguese).\n- Be concise and professional.\n- Use the inventory data provided to answer questions about properties.\n- If the inventory is empty or search yields no results, politely inform the user.\n- Do not invent properties not listed in the inventory."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [
+        480,
+        140
+      ],
+      "id": "ai-agent",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-pro",
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        480,
+        360
+      ],
+      "id": "model-gemini",
+      "name": "Google Gemini"
+    },
+    {
+      "parameters": {
+        "sessionId": "={{ $json.body.sessionId }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1,
+      "position": [
+        600,
+        360
+      ],
+      "id": "memory-window",
+      "name": "Window Memory"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ text: $json.output }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        860,
+        140
+      ],
+      "id": "response-message",
+      "name": "Respond Message"
+    }
+  ],
+  "connections": {
+    "Webhook Receiver": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Clear Memory",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Memory": {
+      "main": [
+        [
+          {
+            "node": "Respond Reset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

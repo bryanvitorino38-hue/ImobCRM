@@ -1,0 +1,7 @@
+{
+  "name": "ImobCRM Pro",
+  "description": "A real estate CRM with Google Sheets integration and detailed lead management.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
